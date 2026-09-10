@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    日志配置
+
+    四个输出目标：
+      CONSOLE        控制台
+      FILE           logs/rag.log           主日志（请求、耗时、错误、检索一行汇总）
+      RETRIEVAL_FILE logs/rag-retrieval.log 召回详情（每条命中的分数/章节/完整正文）
+      ERROR_FILE     logs/rag-error.log     只收 ERROR
+
+    为什么要给「召回详情」单独一个文件：
+      每次检索会打 1~5 条正文，动辄几千字。混进主日志会把它彻底淹没，
+      以后排查连接失败、启动异常之类的问题时主日志就没法看了。
+      而召回内容本身又是排查 RAG 时最需要的，所以拆到独立文件，保留期也更短。
+
+    注意：每个 file appender 都必须显式写 <charset>UTF-8</charset>。
+      Logback 默认跟随 file.encoding，本机控制台是 GBK 而 Java 侧是 UTF-8，
+      不显式指定就会写出乱码日志文件。
+-->
+<configuration>
+
+    <!-- 日志目录与运行期配置保持同一个来源，避免两处不一致 -->
+    <springProperty scope="context" name="LOG_DIR" source="rag.logs.dir" defaultValue="logs"/>
+
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [req=%X{requestId:--}] [%thread] %logger{36} - %msg%n"/>
+
+    <!-- ============ 控制台 ============ -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============ 主日志 ============ -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/rag.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/rag.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============ 召回详情（独立文件，保留期更短） ============ -->
+    <appender name="RETRIEVAL_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/rag-retrieval.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/rag-retrieval.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>3</maxHistory>
+            <totalSizeCap>80MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============ 错误日志 ============ -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/rag-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/rag-error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>50MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!--
+        召回详情专用 logger。
+        additivity=false：只写 RETRIEVAL_FILE，不再冒泡到 root，
+        否则控制台和主日志会被正文刷屏。
+    -->
+    <logger name="RAG_RETRIEVAL" level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="RETRIEVAL_FILE"/>
+    </logger>
+
+    <!-- 本项目放开 DEBUG，方便看召回明细与去重过程 -->
+    <logger name="com.wuyunbin.rag" level="DEBUG"/>
+
+    <!-- 框架降噪 -->
+    <logger name="org.springframework.ai" level="WARN"/>
+    <logger name="io.milvus" level="WARN"/>
+    <logger name="io.grpc" level="WARN"/>
+    <logger name="org.apache.catalina" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+    </root>
+
+</configuration>
