@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>检索参数调优 · 最终结果表</title>
+<style>
+  :root {
+    --line: #d8dee4;
+    --head: #eef2f6;
+    --best: #e6f4ea;
+    --bad:  #fdeaea;
+    --accent: #1a73e8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    margin: 0; padding: 32px 40px 60px;
+    background: #f6f8fa; color: #1f2328;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .meta { color: #57606a; font-size: 13px; margin-bottom: 4px; }
+  .env {
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px 18px; margin: 18px 0 26px; font-size: 13px;
+  }
+  .env b { color: var(--accent); }
+  h2 {
+    font-size: 18px; margin: 34px 0 12px;
+    padding-left: 10px; border-left: 4px solid var(--accent);
+  }
+  .card {
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden; margin-bottom: 8px;
+  }
+  code.block {
+    display: block; background: #24292f; color: #e6edf3;
+    padding: 14px 18px; font-size: 15px; border-radius: 8px;
+    font-family: Consolas, "Courier New", monospace; margin-bottom: 14px;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; background: #fff; }
+  th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; }
+  th { background: var(--head); font-weight: 600; white-space: nowrap; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.best td { background: var(--best); font-weight: 700; }
+  tr.bad  td { background: var(--bad); }
+  .ok  { color: #1a7f37; font-weight: 700; }
+  .no  { color: #cf222e; font-weight: 700; }
+  .note { font-size: 13px; color: #57606a; margin: 6px 0 0; }
+  .warn {
+    background: #fff8e5; border: 1px solid #f0d58c; border-left: 4px solid #d4a72c;
+    padding: 12px 16px; border-radius: 6px; font-size: 13px; margin-top: 10px;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media print { body { background: #fff; } .card { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>检索参数调优 · 最终结果表</h1>
+  <div class="meta">作业:使用本地大模型找出本机 top-K 与 similarity-threshold 的最佳组合</div>
+  <div class="meta">实验日期:2026-09-11</div>
+
+  <div class="env">
+    <b>实验机:</b> Intel i7-12700H (14核/20线程) ｜ 内存 23.7 GB ｜
+    <b>GPU: NVIDIA RTX 3050 Laptop,仅 4 GB 显存</b><br>
+    <b>对话模型:</b> google/gemma-4-e2b (~2B, Q4_K_M) ｜
+    <b>嵌入模型:</b> text-embedding-nomic-embed-text-v1.5 (768维)<br>
+    <b>向量库:</b> Milvus v3.0.1 ｜ <b>分块:</b> 按 Markdown 标题切分,上限 900 字 ｜ <b>基准:</b> 新生手册 10 道题
+  </div>
+
+  <h2>表 1 · 最优参数</h2>
+  <code class="block">最优参数: chunk=900, topK=10, similarityThreshold=0.6, temp=0.7</code>
+  <div class="card">
+    <table>
+      <tr><th>参数</th><th>本机最优值</th><th>参考机值</th><th>是否一致</th></tr>
+      <tr class="best"><td>topK</td><td class="num">10</td><td class="num">5</td><td class="no">✗ 差一倍</td></tr>
+      <tr class="best"><td>similarityThreshold</td><td class="num">0.6</td><td>未标注</td><td>—</td></tr>
+      <tr><td>chunk(分块上限)</td><td class="num">900</td><td class="num">800</td><td class="no">✗</td></tr>
+      <tr><td>temperature</td><td class="num">0.7</td><td class="num">0.2</td><td class="no">✗</td></tr>
+    </table>
+  </div>
+
+  <h2>表 2 · 最终评测结果(主表)</h2>
+  <div class="card">
+    <table>
+      <tr><th>类型</th><th>题数</th><th>Recall@k</th><th>MRR</th><th>幻觉数</th></tr>
+      <tr><td>精确查找</td><td class="num">3</td><td class="num">2/3 = 66.7%</td><td class="num">0.375</td><td class="num">0</td></tr>
+      <tr><td>概述总结</td><td class="num">1</td><td class="num">1/1 = 100%</td><td class="num">1.000</td><td class="num">0</td></tr>
+      <tr class="bad"><td>表格查询</td><td class="num">1</td><td class="num">0/1 = 0%</td><td class="num">0.000</td><td class="num">0</td></tr>
+      <tr><td>多源综合</td><td class="num">2</td><td class="num">2/2 = 100%</td><td class="num">0.300</td><td class="num">0</td></tr>
+      <tr><td>库外</td><td class="num">3</td><td>—</td><td>—</td><td class="num ok">0</td></tr>
+      <tr class="best"><td>合计</td><td class="num">10</td><td class="num">5/7 = 71.4%</td><td class="num">0.389</td><td class="num">0</td></tr>
+    </table>
+  </div>
+  <p class="note">
+    <b>精确查找</b> = F01 校歌 / F02 落户日期 / F04 迁入地址　｜　
+    <b>概述总结</b> = F06 生活用品　｜　
+    <b>表格查询</b> = F03 学费(答案在 Markdown 表格内)　｜　
+    <b>多源综合</b> = F05 报到流程(跨 3 章节) / F07 校园交通(跨 2 处)　｜　
+    <b>库外</b> = F08 分数线 / F09 专业数 / F10 图书馆时间
+  </p>
+  <div class="warn">
+    <b>两个值得注意的点:</b><br>
+    ① <b>表格查询 0/1 = 0%</b> —— 表格内容虽然被完整保留进了向量库(清洗阶段的需求③做到了),
+    但<b>检索阶段找不到它</b>。表格里全是数字、语义信息稀薄,嵌入模型更难匹配。<br>
+    ② <b>多源综合反而 100%</b> —— 答案分散在多个章节,"撞上"的概率更大,
+    但 MRR 仅 0.300(F05 命中在第 10 位,恰好是 topK 边界)。
+  </div>
+  <p class="note">
+    <b>与参考图的差异:</b>参考图每类 2 题(2/2/2/2/2),本表为 3/1/1/2/3。
+    原因是本套 10 题最初按"精准回答 / 概括回答 / 文档中不存在"<b>三类</b>设计,
+    映射到五类后分布自然不均。
+  </p>
+
+  <h2>表 3 · 参数扫描结果(25 组)</h2>
+  <div class="card">
+    <table>
+      <tr><th>topK \ 阈值</th><th>0.0</th><th>0.5</th><th>0.6</th><th>0.65</th><th>0.70</th></tr>
+      <tr><td><b>3</b></td><td class="num">42.9%</td><td class="num">42.9%</td><td class="num">42.9%</td><td class="num">42.9%</td><td class="num no">14.3%</td></tr>
+      <tr><td><b>5</b></td><td class="num">42.9%</td><td class="num">42.9%</td><td class="num">42.9%</td><td class="num">42.9%</td><td class="num no">14.3%</td></tr>
+      <tr><td><b>8</b></td><td class="num">57.1%</td><td class="num">57.1%</td><td class="num">57.1%</td><td class="num">42.9%</td><td class="num no">14.3%</td></tr>
+      <tr class="best"><td><b>10</b></td><td class="num">71.4%</td><td class="num">71.4%</td><td class="num">71.4% ★</td><td class="num">57.1%</td><td class="num no">14.3%</td></tr>
+      <tr><td><b>15</b></td><td class="num">71.4%</td><td class="num">71.4%</td><td class="num">71.4%</td><td class="num">57.1%</td><td class="num no">14.3%</td></tr>
+    </table>
+  </div>
+  <p class="note">格内为 Recall@k。阈值 0.0~0.6 结果完全相同,说明本机分数全部高于 0.6;0.70 直接灾难。</p>
+
+  <h2>表 4 · 逐题诊断(topK=10,阈值=0.6)</h2>
+  <div class="card">
+    <table>
+      <tr><th>ID</th><th>类型</th><th>问题</th><th>命中</th><th>命中排名</th><th>Top1 返回章节</th></tr>
+      <tr><td>F01</td><td>精确</td><td>校歌歌词最后一句</td><td class="ok">✅</td><td><b>第 1 位</b></td><td>集美学校校歌</td></tr>
+      <tr class="bad"><td>F02</td><td>精确</td><td>落户截止日期</td><td class="no">❌</td><td>—</td><td>四、档案转移</td></tr>
+      <tr class="bad"><td>F03</td><td>精确</td><td>艺术类学费住宿费</td><td class="no">❌</td><td>—</td><td>学校基础信息</td></tr>
+      <tr><td>F04</td><td>精确</td><td>迁入地址 + 派出所</td><td class="ok">✅</td><td>第 8 位</td><td>应征地</td></tr>
+      <tr><td>F05</td><td>概括</td><td>本科报到流程</td><td class="ok">✅</td><td>第 10 位</td><td>一、本科新生入学须知</td></tr>
+      <tr><td>F06</td><td>概括</td><td>宿舍生活用品</td><td class="ok">✅</td><td><b>第 1 位</b></td><td>生活用品要求</td></tr>
+      <tr><td>F07</td><td>概括</td><td>校园交通规定</td><td class="ok">✅</td><td>第 2 位</td><td>入学资格复查</td></tr>
+      <tr><td>F08</td><td>库外</td><td>录取分数线</td><td>—</td><td>—</td><td class="ok">正确拒答</td></tr>
+      <tr><td>F09</td><td>库外</td><td>本科专业数</td><td>—</td><td>—</td><td class="ok">正确拒答</td></tr>
+      <tr><td>F10</td><td>库外</td><td>图书馆开放时间</td><td>—</td><td>—</td><td class="ok">正确拒答</td></tr>
+    </table>
+  </div>
+
+  <h2>表 5 · top-K 单题验证(为什么是 10)</h2>
+  <div class="card">
+    <table>
+      <tr><th>topK</th><th>F04 迁入地址</th><th>F05 报到流程</th><th>F02 落户日期</th></tr>
+      <tr><td>1</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr><td>3</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr><td>5</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr class="best"><td>8</td><td class="ok">✅ 第 8 位</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr><td>10</td><td class="ok">✅ 第 8 位</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr><td>15</td><td class="ok">✅ 第 8 位</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr><td>20</td><td class="ok">✅ 第 8 位</td><td class="no">✗</td><td class="no">✗</td></tr>
+    </table>
+  </div>
+  <p class="note">topK 从 5 提到 8 救回 F04;但 F02/F05 加到 20 都救不回 —— 加大 topK 能补救一部分,补救不了排序质量太差的情况。</p>
+
+  <h2>表 6 · 与参考机对比(核心结论)</h2>
+  <div class="card">
+    <table>
+      <tr><th>指标</th><th>参考机</th><th>本机</th><th>差距</th></tr>
+      <tr><td>最优 topK</td><td class="num">5</td><td class="num"><b>10</b></td><td class="no">2 倍</td></tr>
+      <tr><td>Recall@k</td><td class="num">100%</td><td class="num">71.4%</td><td class="no">−28.6 pt</td></tr>
+      <tr><td>MRR</td><td class="num">1.00</td><td class="num">0.389</td><td class="no">−0.611</td></tr>
+      <tr><td>幻觉数</td><td class="num">0</td><td class="num">0</td><td class="ok">持平</td></tr>
+      <tr><td>分块大小</td><td class="num">800</td><td class="num">900</td><td>—</td></tr>
+    </table>
+  </div>
+
+  <h2>表 7 · 根因:嵌入模型对中文几乎无区分能力</h2>
+  <div class="card">
+    <table>
+      <tr><th>对比</th><th>余弦相似度</th></tr>
+      <tr><td>「接站」 vs 接站程序片段(<b>相关</b>)</td><td class="num">0.6131</td></tr>
+      <tr class="bad"><td>「接站」 vs 档案转移片段(<b>无关</b>)</td><td class="num">0.6857 ← 反而更高</td></tr>
+    </table>
+  </div>
+  <p class="note">所有中文分数挤在 0.65~0.73,导致排序被随机化、阈值窗口极窄,只能靠加大 topK 兜底。</p>
+
+  <h2>表 8 · 关键证据:分数区间</h2>
+  <code class="block">分数区间: 最高=0.6776  最低=0.6190   ← 单次对话实测</code>
+  <div class="card">
+    <table>
+      <tr><th>阈值设置</th><th>相对区间</th><th>结果</th></tr>
+      <tr class="best"><td><b>0.60</b></td><td>低于最低分 → <b>一条不滤</b></td><td class="ok">✅ Recall 71.4%</td></tr>
+      <tr><td>0.65</td><td>切掉大部分</td><td>⚠️ Recall 掉到 57.1%</td></tr>
+      <tr class="bad"><td>0.70</td><td><b>高于最高分 → 全滤光</b></td><td class="no">❌ 返回空,Recall 14.3%</td></tr>
+    </table>
+  </div>
+
+  <div class="warn">
+    <b>硬件传导链:</b>
+    4 GB 显存 → 只能跑 2B 小模型 + 英文嵌入模型 → 中文嵌入质量差 → 分数区间窄、区分度低 →
+    <b>topK 必须加大、阈值必须压低</b>。<br>
+    换更强的显卡 → 可跑中文嵌入模型(bge-m3 / Qwen3-Embedding)→ 分数拉开 → <b>最优参数完全改变</b>。
+    所以"每台机器的最佳组合不同"这句话是对的。
+  </div>
+
+</div>
+</body>
+</html>
